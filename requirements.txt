@@ -1,0 +1,7 @@
+langchain
+huggingface_hub
+python-dotenv
+PyPDF2
+faiss-cpu
+unstructured
+tqdm
