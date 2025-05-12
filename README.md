@@ -88,7 +88,8 @@ http://localhost:5000
 
 ##Output Images:
 
-![alt text](outputs/image.png)
+![alt text](outputs/1st_llm.png)
+
 ![alt text](outputs/judge.png)
 
 
