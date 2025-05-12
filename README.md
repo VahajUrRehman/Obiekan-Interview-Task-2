@@ -86,7 +86,7 @@ http://localhost:5000
 - Pinecone vector store must be properly configured
 - Large PDF files may take longer to process initially
 
-##Output Images:
+## Output Images:
 
 ![alt text](outputs/1st_llm.png)
 
