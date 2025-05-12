@@ -2,6 +2,12 @@ langchain
 huggingface_hub
 python-dotenv
 PyPDF2
+pypdf
 faiss-cpu
 unstructured
 tqdm
+langchain_community
+langchain_pinecone
+langchain_openai
+flask
+pinecone

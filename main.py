@@ -1,5 +1,6 @@
 from qa_chain import create_vector_store, load_qa_chain
 import os
+import json
 
 DATA_DIR = "data"
 
@@ -16,5 +17,25 @@ while True:
     q = input("\nAsk a question (or 'exit'): ")
     if q.lower() == "exit":
         break
-    answer = qa(q)
-    print("\n📘 Answer:\n", answer)
+        
+    result = qa(q)
+    
+    print("\n📘 Answer:")
+    print(result["answer"])
+    
+    if result["evaluation"]:
+        print("\n⚖️ Judge's Evaluation:")
+        evaluation = result["evaluation"]
+        if isinstance(evaluation, str):
+            try:
+                # Try to parse if it's a JSON string
+                evaluation = json.loads(evaluation)
+            except json.JSONDecodeError:
+                # If not valid JSON, print as is
+                print(evaluation)
+                continue
+                
+        # Now evaluation should be a dict
+        print(f"Score: {evaluation.get('score', 'N/A')}/10")
+        print(f"Reasoning: {evaluation.get('reasoning', 'N/A')}")
+        print(f"Suggestions: {evaluation.get('suggestions_for_improvement', 'N/A')}")

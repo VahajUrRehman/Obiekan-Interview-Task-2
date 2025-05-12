@@ -1,4 +1,5 @@
 import os
+import json
 from pinecone import Pinecone
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 LLM_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+JUDGE_MODEL = "deepseek-ai/DeepSeek-Prover-V2-671B"  # Using a different model for judge
 
 def embed_text(text: str) -> list:
     # Use Pinecone's inference API for embeddings
@@ -71,3 +73,64 @@ class HFChatLLM(BaseChatModel):
     @property
     def _identifying_params(self) -> Dict[str, Any]:
         return {"model": LLM_MODEL}
+
+class JudgeAgent:
+    def __init__(self):
+        self.client = InferenceClient(provider="novita", api_key=HF_TOKEN)
+    
+    def evaluate_response(self, question: str, answer: str, context: str) -> dict:
+        """
+        Evaluate the main agent's response for accuracy and relevance.
+        """
+        judge_prompt = f"""You are an expert judge evaluating AI responses. Analyze the following:
+
+Question: {question}
+Context: {context}
+AI's Answer: {answer}
+
+Evaluate the response on:
+1. Accuracy (based on provided context)
+2. Relevance to the question
+3. Completeness of the answer
+
+Provide your evaluation in JSON format with these fields:
+- score (0-10)
+- reasoning
+- suggestions_for_improvement
+
+Return ONLY valid JSON without any markdown formatting or prefixes.
+"""
+        try:
+            response = self.client.chat.completions.create(
+                model=JUDGE_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are an expert judge who evaluates AI responses critically and fairly. Return ONLY valid JSON without any markdown formatting or prefixes."},
+                    {"role": "user", "content": judge_prompt}
+                ]
+            )
+            content = response.choices[0].message["content"]
+            
+            # Clean up the response - remove markdown formatting if present
+            content = content.replace('### Evaluation', '').strip()
+            if '```json' in content:
+                content = content.split('```json')[1].split('```')[0].strip()
+            elif '```' in content:
+                content = content.split('```')[1].split('```')[0].strip()
+            
+            try:
+                evaluation = json.loads(content)
+                return evaluation  # Return the dictionary directly
+            except json.JSONDecodeError:
+                return {
+                    "score": 0,
+                    "reasoning": "Error: Invalid evaluation format",
+                    "suggestions_for_improvement": None
+                }
+                
+        except Exception as e:
+            print(f"Judge evaluation error: {str(e)}")
+            return {
+                "score": 0,
+                "reasoning": f"Error during evaluation: {str(e)}",
+                "suggestions_for_improvement": "Unable to provide suggestions due to error"
+            }

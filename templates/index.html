@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chat with Judge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">RAG Chat with Judge Evaluation</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div id="chat-messages" class="space-y-4 mb-6 max-h-[500px] overflow-y-auto">
+                <!-- Messages will be inserted here -->
+            </div>
+            
+            <form id="chat-form" class="flex gap-2">
+                <input type="text" id="user-input" class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" placeholder="Ask a question...">
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <template id="message-template">
+        <div class="message p-4 rounded-lg">
+            <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="font-semibold mb-1"></div>
+                    <div class="message-content"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatMessages = document.getElementById('chat-messages');
+            const chatForm = document.getElementById('chat-form');
+            const userInput = document.getElementById('user-input');
+            const messageTemplate = document.getElementById('message-template');            function addMessage(content, type) {
+                const message = messageTemplate.content.cloneNode(true);
+                const messageDiv = message.querySelector('.message');
+                const icon = message.querySelector('.fas');
+                const name = message.querySelector('.font-semibold');
+                const messageContent = message.querySelector('.message-content');
+
+                if (type === 'user') {
+                    messageDiv.classList.add('bg-blue-50');
+                    icon.classList.add('fa-user');
+                    name.textContent = 'You';
+                    messageContent.textContent = content;
+                } else if (type === 'assistant') {
+                    messageDiv.classList.add('bg-green-50');
+                    icon.classList.add('fa-robot');
+                    name.textContent = 'Assistant';
+                    messageContent.textContent = content;
+                } else if (type === 'judge') {
+                    messageDiv.classList.add('bg-yellow-50');
+                    icon.classList.add('fa-gavel');
+                    name.textContent = 'Judge';
+                    
+                    // For judge messages, create elements programmatically
+                    if (content.score !== undefined) {
+                        const container = document.createElement('div');
+                        container.className = 'space-y-4';
+
+                        // Score section
+                        const scoreSection = document.createElement('div');
+                        scoreSection.className = 'p-2 font-bold text-lg';
+                        scoreSection.textContent = `Score: ${content.score}/10`;
+                        container.appendChild(scoreSection);
+
+                        // Reasoning section
+                        if (content.reasoning) {
+                            const reasoningSection = document.createElement('div');
+                            reasoningSection.className = 'p-2';
+                            
+                            const reasoningTitle = document.createElement('div');
+                            reasoningTitle.className = 'font-bold mb-1';
+                            reasoningTitle.textContent = 'Reasoning';
+                            
+                            const reasoningText = document.createElement('div');
+                            reasoningText.className = 'text-gray-700';
+                            reasoningText.textContent = content.reasoning;
+                            
+                            reasoningSection.appendChild(reasoningTitle);
+                            reasoningSection.appendChild(reasoningText);
+                            container.appendChild(reasoningSection);
+                        }
+
+                        // Suggestions section
+                        if (content.suggestions) {
+                            const suggestionsSection = document.createElement('div');
+                            suggestionsSection.className = 'p-2';
+                            
+                            const suggestionsTitle = document.createElement('div');
+                            suggestionsTitle.className = 'font-bold mb-1';
+                            suggestionsTitle.textContent = 'Suggestions';
+                            
+                            const suggestionsText = document.createElement('div');
+                            suggestionsText.className = 'text-gray-700';
+                            suggestionsText.textContent = content.suggestions;
+                            
+                            suggestionsSection.appendChild(suggestionsTitle);
+                            suggestionsSection.appendChild(suggestionsText);
+                            container.appendChild(suggestionsSection);
+                        }
+
+                        messageContent.appendChild(container);
+                    } else {
+                        messageContent.textContent = content;
+                    }
+                }
+
+                chatMessages.appendChild(message);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const question = userInput.value.trim();
+                if (!question) return;
+
+                addMessage(question, 'user');
+                userInput.value = '';
+
+                try {
+                    const response = await fetch('/ask', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ question })
+                    });
+
+                    const result = await response.json();
+                      // Display assistant's answer
+                    addMessage(result.answer, 'assistant');
+                    
+                    // Display judge's evaluation
+                    if (result.evaluation) {
+                        const evalData = {
+                            score: result.evaluation.score,
+                            reasoning: result.evaluation.reasoning,
+                            suggestions: result.evaluation.suggestions_for_improvement
+                        };
+                        addMessage(evalData, 'judge');
+                    }
+
+                } catch (error) {
+                    console.error('Error:', error);
+                    addMessage('Sorry, there was an error processing your request.', 'assistant');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

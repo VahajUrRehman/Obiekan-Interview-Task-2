@@ -6,7 +6,7 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from hf_clients import embed_text, HFChatLLM
+from hf_clients import embed_text, HFChatLLM, JudgeAgent
 import uuid
 from dotenv import load_dotenv
 import time
@@ -172,6 +172,7 @@ def load_qa_chain():
             search_kwargs={"k": 3}
         )
         llm = HFChatLLM()
+        judge = JudgeAgent()
         
         memory = ConversationBufferMemory(
             memory_key="chat_history",
@@ -189,11 +190,29 @@ def load_qa_chain():
         
         def run_qa(query):
             try:
+                # Get response and context from main agent
                 result = qa_chain({"question": query})
-                return result["answer"]
+                answer = result["answer"]
+                context = "\n".join([doc.page_content for doc in result["source_documents"]])
+                
+                # Get judge's evaluation
+                evaluation = judge.evaluate_response(
+                    question=query,
+                    answer=answer,
+                    context=context
+                )
+                
+                return {
+                    "answer": answer,
+                    "evaluation": evaluation
+                }
+                
             except Exception as e:
                 print(f"\n[!] Error in QA: {str(e)}")
-                return f"Error: {str(e)}"
+                return {
+                    "answer": f"Error: {str(e)}",
+                    "evaluation": None
+                }
         
         return run_qa
         
